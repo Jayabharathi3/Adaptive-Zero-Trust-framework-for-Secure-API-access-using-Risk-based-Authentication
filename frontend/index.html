@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Adaptive Zero-Trust API Security Framework</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f6f9;
+        }
+
+        header {
+            background: #1f2937;
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1e40af;
+        }
+
+        .badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .green { background: #16a34a; }
+        .red { background: #dc2626; }
+        .yellow { background: #f59e0b; }
+
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 10px 0;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .metric-box {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background: #e5e7eb;
+            border-radius: 6px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>Adaptive Zero-Trust Framework for Secure API Access</header>
+
+<div class="container">
+
+    <!-- API Analyzer -->
+    <div class="card">
+        <h3>API Security Analyzer</h3>
+        <textarea id="openapiInput" rows="6" placeholder="Paste OpenAPI JSON here"></textarea>
+        <button onclick="analyzeAPI()">Analyze API</button>
+        <div id="analysisResult" style="margin-top:15px;"></div>
+        <div id="analysisExplanation" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- Secure Transfer -->
+
+    <div class="card">
+        <h2>Live Open Source API Scanner</h2>
+        <input type="text" id="apiUrl" placeholder="Paste OpenAPI URL here" style="width:100%; padding:10px;">
+        <br><br>
+        <button onclick="scanLiveAPI()">Scan Live API</button>
+    
+        <div id="liveResult" style="margin-top:15px;"></div>
+        <div id="liveExplanation" style="margin-top:15px;"></div>
+
+    </div>
+
+    <div class="card">
+        <h3>Secure Transfer Simulation</h3>
+
+        <label>JWT Token</label>
+        <input id="tokenInput" placeholder="Paste JWT token here" />
+
+        <label>Amount</label>
+        <input id="amount" type="number" />
+
+        <label><input type="checkbox" id="newDevice"> New Device</label><br>
+        <label><input type="checkbox" id="unknownIP"> Unknown IP</label><br>
+        <label><input type="checkbox" id="rapidRequests"> Rapid Requests</label><br>
+        <label><input type="checkbox" id="suspiciousUA"> Suspicious User-Agent</label><br><br>
+
+        <button onclick="sendTransfer()">Send Transfer</button>
+
+        <div id="transferResult" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="card">
+        <h3>Security Dashboard</h3>
+        <div class="metrics">
+            <div class="metric-box" id="totalReq">0</div>
+            <div class="metric-box" id="allowed">0</div>
+            <div class="metric-box" id="blocked">0</div>
+        </div>
+        <canvas id="chart" height="80"></canvas>
+    </div>
+
+</div>
+
+<script>
+async function scanLiveAPI() {
+
+    const url = document.getElementById("apiUrl").value;
+
+    const response = await fetch("/analyze-live-api", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url: url })
+    });
+
+    const data = await response.json();
+
+    let color = "green";
+    if (data.risk_level === "MALICIOUS" || data.risk_level === "BLOCKED") {
+        color = "red";
+    } 
+    else if (data.risk_level === "SUSPICIOUS") {
+        color = "orange";
+    }
+
+    // 🔹 Show main result
+    document.getElementById("liveResult").innerHTML = `
+        <h3 style="color:${color}">${data.risk_level}</h3>
+        <p>Security Score: ${data.security_score}</p>
+        <p>HTTPS Enabled: ${data.https_enabled}</p>
+        <p>Authentication Defined: ${data.authentication_defined}</p>
+    `;
+
+    // 🔴 ADD THIS RIGHT HERE
+    if (data.risk_level === "MALICIOUS" || data.risk_level === "BLOCKED") {
+        document.getElementById("liveResult").innerHTML +=
+            `<p style="color:red;font-weight:bold">
+            🚫 API Automatically Blocked by Zero Trust Policy
+            </p>`;
+    }
+
+    // 🔹 Explanation section
+    let explanationHTML = "";
+
+    if (data.owasp_findings && data.owasp_findings.length > 0) {
+        explanationHTML += "<h4>OWASP API Top 10 Findings:</h4><ul>";
+        data.owasp_findings.forEach(risk => {
+            explanationHTML += `<li><strong>${risk}</strong></li>`;
+        });
+        explanationHTML += "</ul>";
+    }
+
+    if (data.explanations && data.explanations.length > 0) {
+        explanationHTML += "<h4>Security Analysis:</h4><ul>";
+        data.explanations.forEach(exp => {
+            explanationHTML += `<li>${exp}</li>`;
+        });
+        explanationHTML += "</ul>";
+    }
+
+    document.getElementById("liveExplanation").innerHTML = explanationHTML;
+}
+
+async function analyzeAPI() {
+    const input = JSON.parse(document.getElementById("openapiInput").value);
+
+    const res = await fetch("/analyze-openapi", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ spec: input })
+    });
+
+    const data = await res.json();
+
+    let color = data.risk_level === "TRUSTED" ? "green" :
+                data.risk_level === "MALICIOUS" ? "red" : "yellow";
+
+    document.getElementById("analysisResult").innerHTML =
+    `<span class="badge ${color}">${data.risk_level}</span>
+     <p>Security Score: ${data.security_score}</p>`;
+
+    let explanationHTML = "";
+
+    if (data.owasp_findings && data.owasp_findings.length > 0) {
+        explanationHTML += "<h4>OWASP API Top 10 Findings:</h4><ul>";
+        data.owasp_findings.forEach(risk => {
+            explanationHTML += `<li><strong>${risk}</strong></li>`;
+        });
+        explanationHTML += "</ul>";
+    }
+
+    if (data.explanations && data.explanations.length > 0) {
+        explanationHTML += "<h4>Security Analysis:</h4><ul>";
+        data.explanations.forEach(exp => {
+            explanationHTML += `<li>${exp}</li>`;
+        });
+        explanationHTML += "</ul>";
+    }
+
+    document.getElementById("analysisExplanation").innerHTML = explanationHTML;
+    }
+
+async function sendTransfer() {
+    const token = document.getElementById("tokenInput").value;
+
+    const metadata = {
+        new_device: document.getElementById("newDevice").checked,
+        unknown_ip: document.getElementById("unknownIP").checked,
+        rapid_requests: document.getElementById("rapidRequests").checked,
+        suspicious_user_agent: document.getElementById("suspiciousUA").checked
+    };
+
+    const res = await fetch("/secure-transfer", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({
+            amount: parseFloat(document.getElementById("amount").value),
+            currency: "USD",
+            source_account: "ACC123",
+            destination_account: "ACC456",
+            metadata: metadata
+        })
+    });
+
+    const data = await res.json();
+
+    let color = data.decision === "allowed" ? "green" :
+                data.decision === "blocked" ? "red" : "yellow";
+
+    document.getElementById("transferResult").innerHTML =
+        `<span class="badge ${color}">${data.decision}</span>
+         <p>Risk Score: ${data.risk_score}</p>`;
+
+    loadDashboard();
+}
+
+async function loadDashboard() {
+    const res = await fetch("/security-dashboard");
+    const data = await res.json();
+
+    document.getElementById("totalReq").innerText = "Total Requests: " + data.total_requests;
+    document.getElementById("allowed").innerText = "Allowed: " + data.allowed;
+    document.getElementById("blocked").innerText = "Blocked: " + data.blocked;
+}
+
+loadDashboard();
+</script>
+
+</body>
+</html>
