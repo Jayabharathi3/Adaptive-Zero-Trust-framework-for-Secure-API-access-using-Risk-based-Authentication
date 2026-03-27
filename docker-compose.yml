@@ -1,0 +1,85 @@
+networks:
+  zero-trust-net:
+    driver: bridge
+
+services:
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./certs:/certs
+      - ./policy-engine/policies.yaml:/policies.yaml
+    networks:
+      - zero-trust-net
+    depends_on:
+      - trust-engine
+      - policy-engine
+    environment:
+      - TRUST_ENGINE_URL=http://trust-engine:8001
+      - POLICY_ENGINE_URL=http://policy-engine:8004
+      - VICTIM_API_URL=http://victim-api:8005
+
+  trust-engine:
+    build: ./trust-engine
+    ports:
+      - "8001:8001"
+    networks:
+      - zero-trust-net
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379
+
+  jwt-scanner:
+    build: ./jwt-scanner
+    ports:
+      - "8002:8002"
+    networks:
+      - zero-trust-net
+
+  attack-sim:
+    build: ./attack-sim
+    ports:
+      - "8003:8003"
+    networks:
+      - zero-trust-net
+
+  victim-api:
+    build: ./attack-sim
+    ports:
+      - "8005:8005"
+    networks:
+      - zero-trust-net
+
+  policy-engine:
+    build: ./policy-engine
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./policy-engine/policies.yaml:/app/policies.yaml
+    networks:
+      - zero-trust-net
+
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    networks:
+      - zero-trust-net
+    depends_on:
+      - redis
+      - gateway
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - REACT_APP_GATEWAY_URL=http://localhost:8000
+      - REACT_APP_SCANNER_URL=http://localhost:8002
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - zero-trust-net

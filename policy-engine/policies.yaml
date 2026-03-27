@@ -1,0 +1,36 @@
+policies:
+  - name: admin_policy
+    endpoint: /admin
+    method: POST
+    conditions:
+      min_trust_score: 90
+      require_token: true
+    action: BLOCK
+    reason: Admin endpoint requires trust score above 90
+
+  - name: payments_policy
+    endpoint: /payments
+    method: POST
+    conditions:
+      min_trust_score: 90
+      require_token: true
+    action: BLOCK
+    reason: Payments require trust score above 90
+
+  - name: admin_users_policy
+    endpoint: /admin/users
+    method: GET
+    conditions:
+      min_trust_score: 90
+      require_token: true
+    action: BLOCK
+    reason: Admin user list requires trust score above 90
+
+  - name: general_policy
+    endpoint: /
+    method: GET
+    conditions:
+      min_trust_score: 40
+      require_token: false
+    action: ALLOW
+    reason: General access allowed with moderate trust

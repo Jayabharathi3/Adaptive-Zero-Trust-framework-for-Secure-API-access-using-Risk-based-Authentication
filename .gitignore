@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.env
+
+# Node
+node_modules/
+build/
+dist/
+.npm
+
+# Docker
+.docker/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Certs (don't expose private keys)
+certs/*.key
+certs/*.pem
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
