@@ -19,8 +19,8 @@ adaptive trust scoring, JWT vulnerability scanning, and live dashboard.**
 
 ## 🚀 Quick Start
 ```bash
-git clone https://github.com/YOURUSERNAME/zero-trust-api-gateway.git
-cd zero-trust-api-gateway
+git clone https://github.com/Jayabharathi3/Adaptive-Zero-Trust-framework-for-Secure-API-access-using-Risk-based-Authentication.git
+cd Adaptive-Zero-Trust-framework-for-Secure-API-access-using-Risk-based-Authentication 
 docker compose up
 ```
 
