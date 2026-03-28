@@ -19,7 +19,7 @@ services:
     environment:
       - TRUST_ENGINE_URL=http://trust-engine:8001
       - POLICY_ENGINE_URL=http://policy-engine:8004
-      - VICTIM_API_URL=http://victim-api:8005
+      - VICTIM_API_URL=http://juice-shop:3000
 
   trust-engine:
     build: ./trust-engine
@@ -98,3 +98,10 @@ services:
     depends_on:
       - gateway
       - trust-engine
+
+  juice-shop:
+    image: bkimminich/juice-shop
+    ports:
+      - "3002:3000"
+    networks:
+      - zero-trust-net   

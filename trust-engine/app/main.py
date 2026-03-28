@@ -29,19 +29,23 @@ class ScoreRequest(BaseModel):
 def score_token(token: str) -> int:
     if not token:
         return -40
-    # Detect obviously malicious tokens
+    # Detect attack tokens
     if "attack" in token.lower():
         return -40
     if "flood" in token.lower():
         return -40
     if "bola" in token.lower():
         return -40
+    if "forge" in token.lower():
+        return -40
     # none algorithm attack
     if token.startswith("eyJhbGciOiJub25lIn0"):
         return -50
+    # Valid JWT structure check
     parts = token.split(".")
     if len(parts) != 3:
-        return -40
+        return -30
+    # Looks like a proper JWT
     return 20
 
 
@@ -56,10 +60,12 @@ def score_rate(ip: str) -> int:
     key = f"rate:{ip}"
     count = redis_client.incr(key)
     redis_client.expire(key, 60)
-    if count > 10:
+    if count > 50:      # increased threshold
         return -60
-    elif count > 5:
+    elif count > 30:    # increased threshold
         return -30
+    elif count > 15:    # increased threshold
+        return -20
     return 10
 
 
