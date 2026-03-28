@@ -45,7 +45,11 @@ async def run_zero_trust_checks(token: str, client_ip: str, endpoint: str, metho
         policy_verdict = policy_data.get("verdict", "BLOCK")
         policy_reason = policy_data.get("reason", "Policy check failed")
 
-    if trust_verdict == "BLOCK" or policy_verdict == "BLOCK":
+    # Policy BLOCK overrides everything
+    if policy_verdict == "BLOCK":
+        final_verdict = "BLOCK"
+    # Trust score BLOCK overrides if policy doesn't explicitly allow
+    elif trust_verdict == "BLOCK" and policy_verdict != "ALLOW":
         final_verdict = "BLOCK"
     elif trust_verdict == "CHALLENGE" or policy_verdict == "CHALLENGE":
         final_verdict = "CHALLENGE"
@@ -163,45 +167,39 @@ async def payments_endpoint(request: Request):
 # ── Catch-all LAST — forwards everything else to victim API ──────
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def gateway_handler(path: str, request: Request):
-    endpoint = f"/{path}"
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    client_ip = request.client.host
-    method = request.method
-
-    try:
-        trust_score, verdict, reason = await run_zero_trust_checks(
-            token, client_ip, endpoint, method
+async def run_zero_trust_checks(token: str, client_ip: str, endpoint: str, method: str):
+    async with httpx.AsyncClient() as client:
+        score_response = await client.post(
+            f"{TRUST_ENGINE_URL}/score",
+            json={"token": token, "ip": client_ip,
+                  "endpoint": endpoint, "method": method},
+            timeout=5.0
         )
-    except Exception as e:
-        return JSONResponse(status_code=503, content={"error": f"Gateway error: {str(e)}"})
+        score_data = score_response.json()
+        trust_score = score_data.get("score", 0)
+        trust_verdict = score_data.get("verdict", "BLOCK")
 
-    if verdict == "BLOCK":
-        return JSONResponse(status_code=403, content={
-            "verdict": "BLOCK",
-            "trust_score": trust_score,
-            "reason": reason,
-            "endpoint": endpoint
-        })
+        policy_response = await client.post(
+            f"{POLICY_ENGINE_URL}/evaluate",
+            json={"endpoint": endpoint, "method": method,
+                  "trust_score": trust_score, "token": token},
+            timeout=5.0
+        )
+        policy_data = policy_response.json()
+        policy_verdict = policy_data.get("verdict", "BLOCK")
+        policy_reason = policy_data.get("reason", "Policy check failed")
 
-    try:
-        body = await request.body()
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method=method,
-                url=f"{VICTIM_API_URL}{endpoint}",
-                headers={k: v for k, v in request.headers.items()
-                         if k.lower() != "host"},
-                content=body,
-                timeout=5.0
-            )
-            return JSONResponse(
-                status_code=response.status_code,
-                content=response.json(),
-                headers={
-                    "X-Trust-Score": str(trust_score),
-                    "X-Verdict": verdict
-                }
-            )
-    except Exception as e:
-        return JSONResponse(status_code=502, content={"error": f"Forwarding failed: {str(e)}"})
+    # Policy engine has final say
+    # If policy explicitly ALLOWs — let it through regardless of trust score
+    # If policy BLOCKs — block it
+    # If policy ALLOWs but trust score is very low — still challenge/block
+    if policy_verdict == "BLOCK":
+        final_verdict = "BLOCK"
+    elif policy_verdict == "ALLOW" and trust_score == 0:
+        # Only block if score is literally 0
+        final_verdict = "BLOCK"
+    else:
+        # Policy says ALLOW — respect it
+        final_verdict = "ALLOW"
+
+    return trust_score, final_verdict, policy_reason

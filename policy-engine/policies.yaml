@@ -1,12 +1,30 @@
 policies:
+  - name: mtls_test_policy
+    endpoint: /mtls-test
+    method: GET
+    conditions:
+      min_trust_score: 0
+      require_token: false
+    action: ALLOW
+    reason: mTLS test endpoint - open access
+
+  - name: health_policy
+    endpoint: /health
+    method: GET
+    conditions:
+      min_trust_score: 0
+      require_token: false
+    action: ALLOW
+    reason: Health check - open access
+
   - name: admin_policy
     endpoint: /admin
     method: POST
     conditions:
-      min_trust_score: 90
+      min_trust_score: 80
       require_token: true
     action: BLOCK
-    reason: Admin endpoint requires trust score above 90
+    reason: Admin endpoint requires trust score above 80
 
   - name: payments_policy
     endpoint: /payments
@@ -16,15 +34,6 @@ policies:
       require_token: true
     action: BLOCK
     reason: Payments require trust score above 90
-
-  - name: admin_users_policy
-    endpoint: /admin/users
-    method: GET
-    conditions:
-      min_trust_score: 90
-      require_token: true
-    action: BLOCK
-    reason: Admin user list requires trust score above 90
 
   - name: general_policy
     endpoint: /

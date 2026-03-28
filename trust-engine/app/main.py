@@ -1,11 +1,21 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi import WebSocket
+from fastapi.websockets import WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import redis
 import os
 import time
 
 app = FastAPI(title="Trust Scoring Engine")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379"))
 
 
@@ -104,3 +114,21 @@ async def score_request(req: ScoreRequest):
             "endpoint": endpoint_score
         }
     }
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    last_seen = None
+    try:
+        while True:
+            await asyncio.sleep(0.5)
+            try:
+                entry = redis_client.lindex("request_log", 0)
+                if entry and entry != last_seen:
+                    last_seen = entry
+                    await ws.send_text(entry)
+            except Exception:
+                pass
+    except WebSocketDisconnect:
+        pass

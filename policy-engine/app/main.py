@@ -1,9 +1,17 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from pydantic import BaseModel
 import yaml
 import os
 
 app = FastAPI(title="Policy Engine")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 POLICY_FILE = "/app/policies.yaml"
 
@@ -32,47 +40,47 @@ async def health():
 async def evaluate(req: EvaluateRequest):
     policies = load_policies()
 
-    # Sort by endpoint length — longest match first
-    # So /admin/users is checked before /admin
-    sorted_policies = sorted(policies, key=lambda p: len(p["endpoint"]), reverse=True)
-
-    for policy in sorted_policies:
-        endpoint_match = (
-            req.endpoint == policy["endpoint"] or
-            req.endpoint.startswith(policy["endpoint"] + "/") or
-            req.endpoint == policy["endpoint"].rstrip("/")
-        )
-        method_match = (
-            policy["method"].upper() == "ANY" or
-            policy["method"].upper() == req.method.upper()
-        )
-
-        if endpoint_match and method_match:
+    for policy in policies:
+        # Check if endpoint matches
+        if policy["endpoint"] == "/" or policy["endpoint"] in req.endpoint:
             conditions = policy["conditions"]
+            min_score = conditions.get("min_trust_score", 0)
+            require_token = conditions.get("require_token", False)
 
-            if req.trust_score < conditions.get("min_trust_score", 0):
+            # If min_trust_score is 0 — always allow regardless of score
+            if min_score == 0:
                 return {
-                    "verdict": "BLOCK",
+                    "verdict": "ALLOW",
                     "policy": policy["name"],
                     "reason": policy["reason"]
                 }
 
-            if conditions.get("require_token") and not req.token:
+            # Check token requirement
+            if require_token and not req.token:
                 return {
                     "verdict": "BLOCK",
                     "policy": policy["name"],
                     "reason": "Token required but not provided"
                 }
 
-            # Policy matched and conditions passed
+            # Check trust score
+            if req.trust_score < min_score:
+                return {
+                    "verdict": "BLOCK",
+                    "policy": policy["name"],
+                    "reason": policy["reason"]
+                }
+
+            # All conditions passed
             return {
                 "verdict": "ALLOW",
                 "policy": policy["name"],
-                "reason": "Policy matched and conditions satisfied"
+                "reason": policy["reason"]
             }
 
+    # No policy matched — allow by default
     return {
         "verdict": "ALLOW",
         "policy": "default",
-        "reason": "No policy matched"
+        "reason": "No blocking policy matched"
     }

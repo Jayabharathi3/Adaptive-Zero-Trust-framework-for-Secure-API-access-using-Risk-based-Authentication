@@ -45,6 +45,7 @@ services:
       - "8003:8003"
     networks:
       - zero-trust-net
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
 
   victim-api:
     build: ./attack-sim
@@ -52,6 +53,7 @@ services:
       - "8005:8005"
     networks:
       - zero-trust-net
+    command: ["uvicorn", "victim_api:victim_app", "--host", "0.0.0.0", "--port", "8005"]
 
   policy-engine:
     build: ./policy-engine
@@ -70,16 +72,29 @@ services:
     networks:
       - zero-trust-net
     depends_on:
-      - redis
       - gateway
+      - redis
     environment:
       - REDIS_URL=redis://redis:6379
       - REACT_APP_GATEWAY_URL=http://localhost:8000
       - REACT_APP_SCANNER_URL=http://localhost:8002
-
+        
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
     networks:
       - zero-trust-net
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/certs
+    networks:
+      - zero-trust-net
+    depends_on:
+      - gateway
+      - trust-engine

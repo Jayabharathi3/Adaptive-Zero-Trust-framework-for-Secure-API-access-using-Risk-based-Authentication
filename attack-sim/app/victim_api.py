@@ -1,8 +1,17 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Header, Request
 from typing import Optional
 import uvicorn
 
 victim_app = FastAPI(title="Vulnerable Victim API")
+
+
+victim_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Fake database ────────────────────────────────────────────────
 USERS = {
@@ -19,12 +28,15 @@ ORDERS = {
     3: {"order_id": 3, "user_id": 3, "item": "Tablet",  "amount": 400},
 }
 
+
 @victim_app.get("/health")
 async def health():
     return {"status": "victim api running — deliberately vulnerable"}
 
 # ── VULNERABILITY 1: BOLA — no ownership check ───────────────────
 # Any user can read ANY user's data just by changing the ID
+
+
 @victim_app.get("/users/{user_id}")
 async def get_user(user_id: int, authorization: Optional[str] = Header(None)):
     # INTENTIONALLY VULNERABLE — no check if requester owns this record
@@ -33,12 +45,16 @@ async def get_user(user_id: int, authorization: Optional[str] = Header(None)):
     return {"error": "User not found"}
 
 # ── VULNERABILITY 2: No auth on admin endpoint ───────────────────
+
+
 @victim_app.get("/admin/users")
 async def get_all_users():
     # INTENTIONALLY VULNERABLE — returns ALL user data including SSN
     return {"users": list(USERS.values()), "warning": "Broken auth — no token required"}
 
 # ── VULNERABILITY 3: Mass assignment ────────────────────────────
+
+
 @victim_app.post("/users/register")
 async def register_user(request: Request):
     body = await request.json()
@@ -47,12 +63,15 @@ async def register_user(request: Request):
         "id": len(USERS) + 1,
         "name": body.get("username", "unknown"),
         "role": body.get("role", "user"),        # attacker can set role=admin
-        "is_admin": body.get("is_admin", False), # attacker can set is_admin=true
+        # attacker can set is_admin=true
+        "is_admin": body.get("is_admin", False),
         "extra_fields_accepted": list(body.keys())
     }
     return {"created": new_user, "warning": "Mass assignment — all fields accepted blindly"}
 
 # ── VULNERABILITY 4: Broken auth — accepts expired tokens ────────
+
+
 @victim_app.get("/orders/{order_id}")
 async def get_order(order_id: int, authorization: Optional[str] = Header(None)):
     # INTENTIONALLY VULNERABLE — accepts any token including expired ones
@@ -64,6 +83,8 @@ async def get_order(order_id: int, authorization: Optional[str] = Header(None)):
     return {"error": "Order not found"}
 
 # ── VULNERABILITY 5: Excessive data exposure ─────────────────────
+
+
 @victim_app.get("/users")
 async def list_users():
     # INTENTIONALLY VULNERABLE — returns sensitive fields
